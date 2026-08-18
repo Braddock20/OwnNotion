@@ -160,6 +160,7 @@ async function handle(req,res){
   const u=new URL(req.url,`http://${req.headers.host}`),p=u.pathname.replace(/\/+$/,'')||'/';
   if(p===`${API}/health`){return json(res,200,{ok:true,status:'healthy',version:VERSION,storage:storageMode,db_ready:pgReady,time:now()});}
   if(p===API||p===`${API}/`){return json(res,200,{ok:true,name:'Life OS Backend',version:VERSION,realtime:'/api/v1/realtime/stream'});}
+  if(p==='/'||p===''){return serveStatic(res,'public/index.html','text/html; charset=utf-8');}
   if(p===`${API}/realtime/stream`){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive','access-control-allow-origin':process.env.CORS_ORIGIN||'*'});res.write(`event: connected\ndata: ${JSON.stringify({version:VERSION,at:now()})}\n\n`);subscribers.add(res);req.on('close',()=>subscribers.delete(res));return;}
   if(p===`${API}/history`&&req.method==='GET'){let hs=[...db.history];const et=u.searchParams.get('entity_type'),eid=u.searchParams.get('entity_id');if(et)hs=hs.filter(x=>x.entity_type===et);if(eid)hs=hs.filter(x=>x.entity_id===eid);return json(res,200,{ok:true,data:hs.slice(0,Number(u.searchParams.get('limit')||100))});}
   const hm=p.match(new RegExp(`^${API}/history/([^/]+)/([^/]+)$`));if(hm&&req.method==='GET')return json(res,200,{ok:true,data:db.history.filter(x=>x.entity_type===hm[1]&&x.entity_id===hm[2])});
@@ -200,6 +201,15 @@ async function analytics(name,u,res){
  if(name==='heatmap'){const map={};for(const h of db.history){const d=h.created_at.slice(0,10);map[d]=(map[d]||0)+1;}return json(res,200,{ok:true,data:map});}
  if(name==='timeline')return json(res,200,{ok:true,data:db.history.slice(0,Number(u.searchParams.get('limit')||200))});
  return json(res,404,{ok:false,error:{code:'NOT_FOUND',message:'Analytics endpoint not found'}});
+}
+
+async function serveStatic(res,rel,type='application/octet-stream'){
+  try{
+    const p=path.resolve(rel);
+    const data=await fs.readFile(p);
+    res.writeHead(200,{'content-type':type,'access-control-allow-origin':process.env.CORS_ORIGIN||'*'});
+    res.end(data);
+  }catch(e){json(res,404,{ok:false,error:{code:'NOT_FOUND',message:'Static asset not found'}});}
 }
 
 const server=http.createServer((req,res)=>handle(req,res).catch(e=>{console.error(e);json(res,e.status||500,{ok:false,error:{code:e.status===400?'BAD_REQUEST':'INTERNAL_ERROR',message:e.message||'Internal server error'}})}));
