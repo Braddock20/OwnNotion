@@ -13,13 +13,30 @@ cp .env.example .env
 npm start
 ```
 
-No `npm install` is required because the runtime uses only Node's standard library.
-
 Default: `http://localhost:10000`
 
 ## Persistence
 
-The default store is a JSON document at `DATA_FILE`. This is deliberately portable and requires no database service. On hosts with ephemeral filesystems, data disappears after a redeploy/restart. For durable production use, mount persistent storage or replace the store with PostgreSQL using the included `schema.sql` as the migration blueprint.
+Two storage modes, picked automatically at boot:
+
+1. **JSON file** (default, dependency-free). Set `DATA_FILE` (e.g. `./data/life-os.json`).
+2. **PostgreSQL** (recommended for production on Render). Set `DATABASE_URL` to a
+   Postgres connection string. Neon (https://neon.tech) is the easiest option:
+   - Create a free Neon project
+   - Copy the pooled connection string (looks like `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`)
+   - On Render: Service → Environment → add `DATABASE_URL` = that string (mark as secret)
+   - Redeploy. The server creates `life_records` and `life_history` tables on first boot and stores everything durably.
+
+If `DATABASE_URL` is set but the connection fails, the server logs a warning and falls back to the JSON store so it still boots.
+
+## Render deployment (durable)
+
+1. Push this repo to GitHub.
+2. Render → **New** → **Blueprint** → point at this repo (it reads `render.yaml`).
+3. After the service is created, open it → **Environment** → add `DATABASE_URL` and paste your Neon connection string. Save. Render redeploys automatically.
+4. Hit `https://<your-service>.onrender.com/api/v1/health` — the response includes `"storage":"postgres"` and `"db_ready":true` when everything is wired correctly.
+
+Your data will survive spin-downs, restarts, and redeploys because it lives in Neon, not on Render's ephemeral disk.
 
 ## Security
 
