@@ -16,3 +16,10 @@ services:
         value: "*"
       - key: TIMEZONE
         value: Africa/Nairobi
+      - key: DATABASE_URL
+        sync: false   # set this in Render dashboard -> Environment, paste your Neon connection string
+      - key: DATABASE_URL_SYNC
+        fromService:
+          type: pserv
+          name: life-os-db
+          property: connectionString
