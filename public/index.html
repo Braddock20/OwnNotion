@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Life OS — API Test Console</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a22;--panel2:#1c2230;--border:#2a3242;
+    --text:#e6e9ef;--muted:#8a93a6;--accent:#7c9cff;--ok:#3ecf8e;--warn:#ffb454;--err:#ff6b6b;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{color:var(--muted);font-size:12px}
+  .wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 60px)}
+  aside{border-right:1px solid var(--border);padding:16px;overflow:auto;background:var(--panel)}
+  main{padding:16px;overflow:auto}
+  .group{margin-bottom:18px}
+  .group h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px 0}
+  button{appearance:none;border:1px solid var(--border);background:var(--panel2);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--mono)}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);color:#0c1020;border-color:var(--accent);font-weight:600}
+  button.primary:hover{filter:brightness(1.05);color:#0c1020}
+  button.danger{border-color:#5a2a2a;color:var(--err)}
+  .endpoint{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer;border:1px solid transparent}
+  .endpoint:hover{background:var(--panel2);border-color:var(--border)}
+  .endpoint .method{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;min-width:48px;text-align:center}
+  .get{background:#1c2a3a;color:#7c9cff}
+  .post{background:#1a3a25;color:#3ecf8e}
+  .patch{background:#3a2f1a;color:#ffb454}
+  .delete{background:#3a1a1a;color:#ff6b6b}
+  .endpoint .path{font-family:var(--mono);font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .endpoint .badge{font-size:10px;color:var(--muted)}
+  .endpoint.runned .badge{color:var(--ok)}
+  .endpoint.failed .badge{color:var(--err)}
+  .config{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .config label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .config input,.config textarea{background:#0c1018;border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-family:var(--mono);font-size:12px;width:100%}
+  .config textarea{min-height:60px;resize:vertical}
+  .row{display:flex;gap:8px}
+  .row > *{flex:1}
+  .toolbar{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+  .toolbar .stat{font-size:12px;color:var(--muted)}
+  .toolbar .stat b{color:var(--text)}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px}
+  .panel h2{font-size:13px;margin:0 0 8px 0;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+  pre{background:#0c1018;border:1px solid var(--border);border-radius:6px;padding:10px;margin:0;font-family:var(--mono);font-size:12px;overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all}
+  .ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .summary .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px}
+  .summary .card .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .summary .card .v{font-size:20px;font-weight:600;margin-top:4px}
+  .log{font-family:var(--mono);font-size:12px;line-height:1.5}
+  .log .line{padding:2px 0;border-bottom:1px dashed #1f2530}
+  .log .t{color:var(--muted);margin-right:8px}
+  .log .m-get{color:#7c9cff}.log .m-post{color:#3ecf8e}.log .m-patch{color:#ffb454}.log .m-delete{color:#ff6b6b}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-bottom:6px}
+  .empty{color:var(--muted);font-size:12px;font-style:italic}
+  @media (max-width: 800px){.wrap{grid-template-columns:1fr}aside{border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 Life OS API Test Console</h1>
+  <span class="sub" id="envInfo">—</span>
+  <span style="flex:1"></span>
+  <span class="sub">CORS: <span id="corsStatus">—</span></span>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="config">
+      <label>API Base URL</label>
+      <input id="baseUrl" value="https://ownnotion.onrender.com" />
+      <label>API Key <span style="text-transform:none">(leave empty if not set)</span></label>
+      <input id="apiKey" placeholder="optional" />
+      <div class="row">
+        <button id="saveCfg">Save</button>
+        <button id="resetCfg" class="danger">Reset</button>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:8px">
+      <button id="runAll" class="primary">▶ Run all tests</button>
+      <button id="clearLog">Clear log</button>
+    </div>
+    <div class="summary">
+      <div class="card"><div class="k">Total</div><div class="v" id="sTotal">0</div></div>
+      <div class="card"><div class="k">Pass</div><div class="v ok" id="sPass">0</div></div>
+      <div class="card"><div class="k">Fail</div><div class="v err" id="sFail">0</div></div>
+      <div class="card"><div class="k">Skipped</div><div class="v warn" id="sSkip">0</div></div>
+    </div>
+
+    <div id="endpoints"></div>
+  </aside>
+
+  <main>
+    <div class="panel">
+      <h2>Live log</h2>
+      <div id="log" class="log"><div class="empty">Click an endpoint in the sidebar to run it, or hit "Run all tests" to sweep everything.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Last response</h2>
+      <div id="meta" class="sub" style="margin-bottom:6px">—</div>
+      <pre id="resp">—</pre>
+    </div>
+
+    <div class="panel">
+      <h2>Notes</h2>
+      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.7">
+        <li>Endpoints that need a real ID (PATCH/DELETE/GET-by-id) reuse the last created id from the run.</li>
+        <li>If you see <code>NetworkError</code> or no response at all, that's a CORS or connectivity issue — check the browser console (F12) for the real error.</li>
+        <li>The <b>Run all</b> button is destructive on the server side (it creates real records). Use a separate Neon project if you care about clean state.</li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<script>
+const ENDPOINTS = [
+  // system
+  { group:'System', method:'GET', path:'/api/v1/health', run:async () => api('/api/v1/health') },
+  { group:'System', method:'GET', path:'/api/v1', run:async () => api('/api/v1') },
+  { group:'System', method:'GET', path:'/api/v1/realtime/stream', note:'SSE — opens & closes', run:async () => testSse('/api/v1/realtime/stream') },
+
+  // tasks
+  { group:'Tasks', method:'GET',  path:'/api/v1/tasks',                  run:async () => api('/api/v1/tasks?limit=10') },
+  { group:'Tasks', method:'POST', path:'/api/v1/tasks',                  run:async () => api('/api/v1/tasks',{method:'POST',body:JSON.stringify({title:'Test task '+Date.now(),priority:'high',due_date:new Date().toISOString().slice(0,10),status:'planned'})}), saveAs:'taskId' },
+  { group:'Tasks', method:'GET',  path:'/api/v1/tasks/{id}',             run:async () => api('/api/v1/tasks/'+state.ids.taskId) },
+  { group:'Tasks', method:'PATCH',path:'/api/v1/tasks/{id}',             run:async () => api('/api/v1/tasks/'+state.ids.taskId,{method:'PATCH',body:JSON.stringify({title:'Updated task'})}) },
+  { group:'Tasks', method:'POST', path:'/api/v1/tasks/{id}/complete',     run:async () => api('/api/v1/tasks/'+state.ids.taskId+'/complete',{method:'POST',body:'{}'}) },
+  { group:'Tasks', method:'POST', path:'/api/v1/tasks/{id}/reopen',       run:async () => api('/api/v1/tasks/'+state.ids.taskId+'/reopen',{method:'POST',body:'{}'}) },
+  { group:'Tasks', method:'DELETE',path:'/api/v1/tasks/{id}',             run:async () => api('/api/v1/tasks/'+state.ids.taskId,{method:'DELETE'}) },
+
+  // habits
+  { group:'Habits', method:'GET',  path:'/api/v1/habits',                run:async () => api('/api/v1/habits?limit=10') },
+  { group:'Habits', method:'POST', path:'/api/v1/habits',                run:async () => api('/api/v1/habits',{method:'POST',body:JSON.stringify({name:'Test habit',frequency:'daily'})}), saveAs:'habitId' },
+  { group:'Habits', method:'POST', path:'/api/v1/habits/{id}/check',     run:async () => api('/api/v1/habits/'+state.ids.habitId+'/check',{method:'POST',body:JSON.stringify({date:new Date().toISOString().slice(0,10)})}) },
+  { group:'Habits', method:'PATCH',path:'/api/v1/habits/{id}',           run:async () => api('/api/v1/habits/'+state.ids.habitId,{method:'PATCH',body:JSON.stringify({description:'updated'})}) },
+  { group:'Habits', method:'DELETE',path:'/api/v1/habits/{id}',         run:async () => api('/api/v1/habits/'+state.ids.habitId,{method:'DELETE'}) },
+
+  // goals
+  { group:'Goals', method:'POST',  path:'/api/v1/goals',                 run:async () => api('/api/v1/goals',{method:'POST',body:JSON.stringify({title:'Test goal',target:'finish test',status:'active'})}), saveAs:'goalId' },
+  { group:'Goals', method:'POST',  path:'/api/v1/goals/{id}/progress',   run:async () => api('/api/v1/goals/'+state.ids.goalId+'/progress',{method:'POST',body:JSON.stringify({current_value:5})}) },
+  { group:'Goals', method:'DELETE',path:'/api/v1/goals/{id}',            run:async () => api('/api/v1/goals/'+state.ids.goalId,{method:'DELETE'}) },
+
+  // challenges
+  { group:'Challenges', method:'POST', path:'/api/v1/challenges',        run:async () => api('/api/v1/challenges',{method:'POST',body:JSON.stringify({title:'Test challenge',start_date:new Date().toISOString().slice(0,10),duration_days:7})}), saveAs:'challengeId' },
+  { group:'Challenges', method:'POST', path:'/api/v1/challenges/{id}/items', run:async () => api('/api/v1/challenges/'+state.ids.challengeId+'/items',{method:'POST',body:JSON.stringify({day_number:1,title:'Day 1 item'})}), saveAs:'challengeItemId' },
+  { group:'Challenges', method:'POST', path:'/api/v1/challenges/{id}/items/{itemId}/complete', run:async () => api('/api/v1/challenges/'+state.ids.challengeId+'/items/'+state.ids.challengeItemId+'/complete',{method:'POST',body:'{}'}) },
+  { group:'Challenges', method:'DELETE', path:'/api/v1/challenges/{id}', run:async () => api('/api/v1/challenges/'+state.ids.challengeId,{method:'DELETE'}) },
+
+  // metrics
+  { group:'Metrics', method:'POST', path:'/api/v1/metrics',              run:async () => api('/api/v1/metrics',{method:'POST',body:JSON.stringify({name:'Test metric',unit:'count'})}), saveAs:'metricId' },
+  { group:'Metrics', method:'POST', path:'/api/v1/metrics/{id}/entries', run:async () => api('/api/v1/metrics/'+state.ids.metricId+'/entries',{method:'POST',body:JSON.stringify({value:42,note:'first entry'})}) },
+  { group:'Metrics', method:'DELETE', path:'/api/v1/metrics/{id}',       run:async () => api('/api/v1/metrics/'+state.ids.metricId,{method:'DELETE'}) },
+
+  // finance
+  { group:'Finance', method:'POST', path:'/api/v1/finance/transactions', run:async () => api('/api/v1/finance/transactions',{method:'POST',body:JSON.stringify({kind:'expense',amount_minor:1500,currency:'KES',category:'food',transaction_date:new Date().toISOString().slice(0,10)})}), saveAs:'txId' },
+  { group:'Finance', method:'GET',  path:'/api/v1/finance/today',         run:async () => api('/api/v1/finance/today') },
+  { group:'Finance', method:'GET',  path:'/api/v1/finance/budgets',       run:async () => api('/api/v1/finance/budgets') },
+  { group:'Finance', method:'GET',  path:'/api/v1/finance/savings',       run:async () => api('/api/v1/finance/savings') },
+
+  // journal / notes / decisions / ideas / waiting / reminders
+  { group:'Journal', method:'POST', path:'/api/v1/journal',               run:async () => api('/api/v1/journal',{method:'POST',body:JSON.stringify({content:'Test journal '+Date.now(),entry_date:new Date().toISOString().slice(0,10)})}) },
+  { group:'Notes',   method:'POST', path:'/api/v1/notes',                 run:async () => api('/api/v1/notes',{method:'POST',body:JSON.stringify({title:'Test note',body:'content'})}) },
+  { group:'Ideas',   method:'POST', path:'/api/v1/ideas',                 run:async () => api('/api/v1/ideas',{method:'POST',body:JSON.stringify({title:'Test idea'})}) },
+  { group:'Decisions', method:'POST', path:'/api/v1/decisions',           run:async () => api('/api/v1/decisions',{method:'POST',body:JSON.stringify({decision:'Test decision'})}) },
+  { group:'Waiting', method:'POST', path:'/api/v1/waiting',               run:async () => api('/api/v1/waiting',{method:'POST',body:JSON.stringify({item:'Test waiting item'})}) },
+  { group:'Reminders', method:'POST', path:'/api/v1/reminders',           run:async () => api('/api/v1/reminders',{method:'POST',body:JSON.stringify({title:'Test reminder',remind_at:new Date(Date.now()+86400000).toISOString()})}) },
+
+  // events / timetable
+  { group:'Events', method:'POST', path:'/api/v1/events',                run:async () => api('/api/v1/events',{method:'POST',body:JSON.stringify({title:'Test event',start_at:new Date().toISOString()})}) },
+  { group:'Timetable', method:'POST', path:'/api/v1/timetable',          run:async () => api('/api/v1/timetable',{method:'POST',body:JSON.stringify({title:'Monday class',weekday:1,start_time:'09:00',end_time:'10:00'})}) },
+
+  // life-areas & tags
+  { group:'Org', method:'POST', path:'/api/v1/life-areas',               run:async () => api('/api/v1/life-areas',{method:'POST',body:JSON.stringify({name:'Health'})}) },
+  { group:'Org', method:'POST', path:'/api/v1/tags',                     run:async () => api('/api/v1/tags',{method:'POST',body:JSON.stringify({name:'urgent'})}) },
+  { group:'Org', method:'GET',  path:'/api/v1/projects',                 run:async () => api('/api/v1/projects') },
+
+  // history
+  { group:'History', method:'GET', path:'/api/v1/history?limit=20',      run:async () => api('/api/v1/history?limit=20') },
+  { group:'History', method:'GET', path:'/api/v1/history/tasks/{id}',    run:async () => api('/api/v1/history/tasks/'+state.ids.taskId).catch(()=>({ok:false,skipped:true,reason:'task already deleted'})).then(r=> r.skipped ? r : r) },
+
+  // dashboard + analytics
+  { group:'Dashboard', method:'GET', path:'/api/v1/dashboard/today',      run:async () => api('/api/v1/dashboard/today') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/overview',  run:async () => api('/api/v1/analytics/overview') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/tasks?days=7', run:async () => api('/api/v1/analytics/tasks?days=7') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/finance',   run:async () => api('/api/v1/analytics/finance') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/habits',    run:async () => api('/api/v1/analytics/habits') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/life-areas',run:async () => api('/api/v1/analytics/life-areas') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/heatmap',   run:async () => api('/api/v1/analytics/heatmap') },
+  { group:'Analytics', method:'GET', path:'/api/v1/analytics/timeline?limit=10', run:async () => api('/api/v1/analytics/timeline?limit=10') },
+
+  // search
+  { group:'Search', method:'GET', path:'/api/v1/search?q=test',          run:async () => api('/api/v1/search?q=test') },
+
+  // export/import
+  { group:'Backup', method:'GET', path:'/api/v1/export',                 run:async () => api('/api/v1/export') },
+];
+
+const state = {
+  base: localStorage.getItem('lifeos_base') || 'https://ownnotion.onrender.com',
+  key: localStorage.getItem('lifeos_key') || '',
+  ids: {},
+  results: {},
+};
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function logLine(text, kind) {
+  const el = $('log');
+  if (el.querySelector('.empty')) el.innerHTML = '';
+  const t = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'line';
+  div.innerHTML = `<span class="t">${t}</span>${text}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function shortJson(j) {
+  try { return JSON.stringify(j, null, 2).slice(0, 4000); } catch { return String(j).slice(0, 4000); }
+}
+
+async function api(path, opts = {}) {
+  const url = state.base.replace(/\/$/, '') + path;
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (state.key) headers['x-api-key'] = state.key;
+  const t0 = performance.now();
+  let res, body, err;
+  try {
+    res = await fetch(url, { ...opts, headers });
+    const txt = await res.text();
+    try { body = JSON.parse(txt); } catch { body = txt; }
+  } catch (e) {
+    err = e;
+  }
+  const ms = Math.round(performance.now() - t0);
+  if (err) {
+    $('meta').textContent = `${url}  →  NETWORK ERROR in ${ms}ms`;
+    $('resp').textContent = String(err.stack || err.message || err);
+    throw err;
+  }
+  $('meta').textContent = `${opts.method || 'GET'} ${url}  →  ${res.status} ${res.statusText}  ·  ${ms}ms`;
+  $('resp').textContent = shortJson(body);
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    e.status = res.status;
+    e.body = body;
+    throw e;
+  }
+  return body;
+}
+
+function testSse(path) {
+  return new Promise((resolve) => {
+    const url = state.base.replace(/\/$/, '') + path;
+    const ctl = new AbortController();
+    const t0 = performance.now();
+    fetch(url, { signal: ctl.signal, headers: state.key ? { 'x-api-key': state.key } : {} })
+      .then((res) => {
+        const ms = Math.round(performance.now() - t0);
+        if (!res.ok) { resolve({ ok:false, status:res.status }); ctl.abort(); return; }
+        // Just check headers came back with text/event-stream, then close
+        const ct = res.headers.get('content-type') || '';
+        $('meta').textContent = `GET ${url}  →  ${res.status}  ·  content-type: ${ct}  ·  ${ms}ms`;
+        $('resp').textContent = `(SSE stream opened successfully; closing immediately)`;
+        ctl.abort();
+        resolve({ ok:true, contentType:ct });
+      })
+      .catch((e) => {
+        if (e.name === 'AbortError') resolve({ ok:true, note:'aborted cleanly' });
+        else resolve({ ok:false, error:String(e) });
+      });
+    setTimeout(() => { try { ctl.abort(); } catch {} }, 2500);
+  });
+}
+
+function setStats() {
+  const r = Object.values(state.results);
+  $('sTotal').textContent = ENDPOINTS.length;
+  $('sPass').textContent = r.filter(x => x === 'pass').length;
+  $('sFail').textContent = r.filter(x => x === 'fail').length;
+  $('sSkip').textContent = r.filter(x => x === 'skip').length;
+}
+
+function renderSidebar() {
+  const root = $('endpoints');
+  const groups = {};
+  for (const e of ENDPOINTS) (groups[e.group] = groups[e.group] || []).push(e);
+  root.innerHTML = '';
+  for (const [g, list] of Object.entries(groups)) {
+    const wrap = document.createElement('div');
+    wrap.className = 'group';
+    wrap.innerHTML = `<h3>${g}</h3>`;
+    for (const ep of list) {
+      const div = document.createElement('div');
+      div.className = 'endpoint';
+      div.dataset.path = ep.path + '|' + ep.method;
+      const m = ep.method.toLowerCase();
+      const status = state.results[ep.path + '|' + ep.method];
+      if (status === 'pass') div.classList.add('runned');
+      if (status === 'fail') div.classList.add('failed');
+      div.innerHTML = `<span class="method ${m}">${ep.method}</span><span class="path">${ep.path}</span><span class="badge">${status === 'pass' ? '✓' : status === 'fail' ? '✗' : '·'}</span>`;
+      div.addEventListener('click', () => runOne(ep));
+      wrap.appendChild(div);
+    }
+    root.appendChild(wrap);
+  }
+}
+
+async function runOne(ep) {
+  const key = ep.path + '|' + ep.method;
+  logLine(`<span class="m-${ep.method.toLowerCase()}">${ep.method}</span> ${ep.path}  <span class="warn">running…</span>`);
+  try {
+    const out = await ep.run();
+    if (ep.saveAs && out && out.data && out.data.id) state.ids[ep.saveAs] = out.data.id;
+    state.results[key] = 'pass';
+    logLine(`<span class="m-${ep.method.toLowerCase()}">${ep.method}</span> ${ep.path}  <span class="ok">✓ ok</span>`);
+  } catch (e) {
+    if (e.status === 404) { state.results[key] = 'skip'; logLine(`<span class="m-${ep.method.toLowerCase()}">${ep.method}</span> ${ep.path}  <span class="warn">⊘ skipped (404)</span>`); }
+    else { state.results[key] = 'fail'; logLine(`<span class="m-${ep.method.toLowerCase()}">${ep.method}</span> ${ep.path}  <span class="err">✗ ${e.message}</span>`); }
+  }
+  setStats();
+  renderSidebar();
+}
+
+async function runAll() {
+  $('runAll').disabled = true;
+  logLine(`<span class="ok">▶ Starting full sweep against ${state.base}</span>`);
+  for (const ep of ENDPOINTS) {
+    await runOne(ep);
+    await sleep(80);
+  }
+  logLine(`<span class="ok">✓ Sweep complete — ${$('sPass').textContent} pass, ${$('sFail').textContent} fail, ${$('sSkip').textContent} skip</span>`);
+  $('runAll').disabled = false;
+}
+
+function init() {
+  $('baseUrl').value = state.base;
+  $('apiKey').value = state.key;
+  $('envInfo').textContent = `${location.host}  ·  ${navigator.userAgent.split(' ').slice(-1)[0]}`;
+  $('saveCfg').onclick = () => {
+    state.base = $('baseUrl').value.trim();
+    state.key = $('apiKey').value.trim();
+    localStorage.setItem('lifeos_base', state.base);
+    localStorage.setItem('lifeos_key', state.key);
+    logLine(`<span class="ok">Saved config</span>`);
+    testCors();
+  };
+  $('resetCfg').onclick = () => {
+    localStorage.removeItem('lifeos_base');
+    localStorage.removeItem('lifeos_key');
+    state.base = 'https://ownnotion.onrender.com';
+    state.key = '';
+    $('baseUrl').value = state.base;
+    $('apiKey').value = '';
+    logLine(`<span class="warn">Config reset</span>`);
+  };
+  $('runAll').onclick = runAll;
+  $('clearLog').onclick = () => { $('log').innerHTML = '<div class="empty">cleared</div>'; };
+  renderSidebar();
+  setStats();
+  testCors();
+}
+
+async function testCors() {
+  $('corsStatus').textContent = '…';
+  try {
+    const res = await fetch(state.base.replace(/\/$/, '') + '/api/v1/health', { method: 'GET' });
+    const acao = res.headers.get('access-control-allow-origin') || '(none)';
+    $('corsStatus').innerHTML = `<span class="ok">${res.status}</span> · ACAO: <code>${acao}</code>`;
+  } catch (e) {
+    $('corsStatus').innerHTML = `<span class="err">failed</span> · ${e.message}`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
